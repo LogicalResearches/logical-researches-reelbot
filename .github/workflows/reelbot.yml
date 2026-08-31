@@ -1,8 +1,6 @@
 name: Logical Researches ReelBot
 
 on:
-  push:
-    branches: [main]
   schedule:
     # 18:00 India time. GitHub cron uses UTC.
     - cron: "30 12 * * *"
