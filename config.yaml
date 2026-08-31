@@ -1,0 +1,93 @@
+page:
+  handle: logical_researches
+  display_name: Logical Researches
+  niche: science, artificial intelligence, space, engineering, archaeology, and surprising research
+  language: en-US
+  call_to_action: Follow @logical_researches for one evidence-based discovery every day.
+
+content:
+  max_candidate_age_days: 10
+  candidate_limit_per_feed: 8
+  target_duration_seconds: 42
+  segment_count: 5
+  min_narration_words: 72
+  max_narration_words: 115
+  avoid_topics:
+    - partisan politics
+    - graphic violence
+    - investment advice
+    - medical treatment advice
+    - unverified conspiracy claims
+  preferred_keywords:
+    - discovery
+    - researchers
+    - artificial intelligence
+    - space
+    - planet
+    - brain
+    - robot
+    - ancient
+    - climate
+    - engineering
+    - material
+    - telescope
+
+sources:
+  - name: NASA Technology
+    feed_url: https://www.nasa.gov/technology/feed/
+    allowed_domains: [nasa.gov]
+    trust_weight: 1.00
+  - name: NASA Science
+    feed_url: https://science.nasa.gov/feed/
+    allowed_domains: [nasa.gov]
+    trust_weight: 1.00
+  - name: MIT Research
+    feed_url: https://news.mit.edu/rss/research
+    allowed_domains: [mit.edu]
+    trust_weight: 0.98
+  - name: MIT Artificial Intelligence
+    feed_url: https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml
+    allowed_domains: [mit.edu]
+    trust_weight: 0.98
+  - name: ESA Space Science
+    feed_url: https://www.esa.int/rssfeed/Our_Activities/Space_Science
+    allowed_domains: [esa.int]
+    trust_weight: 1.00
+  - name: ESA Space Engineering
+    feed_url: https://www.esa.int/rssfeed/Our_Activities/Space_Engineering_Technology
+    allowed_domains: [esa.int]
+    trust_weight: 1.00
+
+visuals:
+  provider: wikimedia_commons
+  max_downloads: 3
+  accepted_licenses:
+    - public domain
+    - cc0
+    - cc by
+    - cc-by
+    - cc by-sa
+    - cc-by-sa
+
+style:
+  width: 1080
+  height: 1920
+  fps: 30
+  background: "#07111F"
+  primary: "#F7FBFF"
+  accent: "#36E1E9"
+  accent_secondary: "#FFB84D"
+  font_regular: /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+  font_bold: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+
+ai:
+  text_model: gemini-2.5-flash-lite
+  tts_model: gemini-3.1-flash-tts-preview
+  voice: Charon
+  use_fallback_if_unavailable: true
+
+instagram:
+  graph_api_version: v25.0
+  share_to_feed: true
+  poll_interval_seconds: 6
+  publish_timeout_seconds: 300
