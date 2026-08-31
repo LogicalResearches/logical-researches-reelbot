@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "logical-researches-reelbot"
+version = "0.1.0"
+description = "A source-grounded, zero-cost research-to-Instagram-Reel automation pipeline."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Vanga Chaitanya Naidu" }]
+dependencies = [
+  "beautifulsoup4>=4.12,<5",
+  "feedparser>=6.0,<7",
+  "google-genai>=1.54,<2",
+  "Pillow>=11,<13",
+  "pydantic>=2.9,<3",
+  "python-dateutil>=2.9,<3",
+  "PyYAML>=6.0,<7",
+  "requests>=2.32,<3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3,<9"]
+
+[project.scripts]
+reelbot = "reelbot.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["reelbot*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
