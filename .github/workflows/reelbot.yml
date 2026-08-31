@@ -1,0 +1,167 @@
+name: Logical Researches ReelBot
+
+on:
+  schedule:
+    # 18:00 India time. GitHub cron uses UTC.
+    - cron: "30 12 * * *"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: What should ReelBot do?
+        required: true
+        default: generate-only
+        type: choice
+        options:
+          - generate-only
+          - generate-and-post
+          - publish-current
+      topic_url:
+        description: Optional trusted article URL (blank = choose from feeds)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: reelbot-pages
+  cancel-in-progress: false
+
+jobs:
+  reelbot:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+      INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+      REQUESTED_ACTION: ${{ inputs.action || '' }}
+      TOPIC_URL: ${{ inputs.topic_url || '' }}
+      SCHEDULE_MODE: ${{ vars.REELBOT_SCHEDULE_MODE || 'review' }}
+    steps:
+      - name: Check out ReelBot
+        uses: actions/checkout@v4
+
+      - name: Choose safe run mode
+        id: mode
+        shell: bash
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "schedule" ]]; then
+            if [[ "${SCHEDULE_MODE}" == "auto" ]]; then
+              ACTION="generate-and-post"
+            else
+              ACTION="generate-only"
+            fi
+          else
+            ACTION="${REQUESTED_ACTION:-generate-only}"
+          fi
+          echo "action=${ACTION}" >> "${GITHUB_OUTPUT}"
+
+      - name: Compute free GitHub Pages URL
+        id: pages_url
+        shell: bash
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          if [[ "${REPO_NAME}" == "${GITHUB_REPOSITORY_OWNER}.github.io" ]]; then
+            BASE_URL="https://${GITHUB_REPOSITORY_OWNER}.github.io/"
+          else
+            BASE_URL="https://${GITHUB_REPOSITORY_OWNER}.github.io/${REPO_NAME}/"
+          fi
+          echo "base_url=${BASE_URL}" >> "${GITHUB_OUTPUT}"
+
+      - name: Install Python and FFmpeg
+        if: steps.mode.outputs.action != 'publish-current'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install ReelBot
+        if: steps.mode.outputs.action != 'publish-current'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+          python -m pip install --upgrade pip
+          python -m pip install .
+
+      - name: Recover posting history from the current preview
+        if: steps.mode.outputs.action != 'publish-current'
+        shell: bash
+        run: |
+          mkdir -p site
+          curl --fail --silent --show-error --max-time 20 \
+            "${{ steps.pages_url.outputs.base_url }}history.json" \
+            --output site/history.json || true
+
+      - name: Research, fact-check, write, voice and render
+        if: steps.mode.outputs.action != 'publish-current'
+        shell: bash
+        run: |
+          EXTRA_ARGS=()
+          if [[ -n "${TOPIC_URL}" ]]; then
+            EXTRA_ARGS+=(--topic-url "${TOPIC_URL}")
+          fi
+          python -m reelbot generate \
+            --output site \
+            --work-dir work \
+            --history site/history.json \
+            "${EXTRA_ARGS[@]}"
+
+      - name: Keep a downloadable review copy
+        if: steps.mode.outputs.action != 'publish-current'
+        uses: actions/upload-artifact@v4
+        with:
+          name: reelbot-review
+          path: |
+            site/draft.json
+            site/index.html
+            site/reels/*.mp4
+            site/covers/*.jpg
+          retention-days: 7
+
+      - name: Configure GitHub Pages
+        if: steps.mode.outputs.action != 'publish-current'
+        uses: actions/configure-pages@v5
+
+      - name: Upload private build to Pages deployment
+        if: steps.mode.outputs.action != 'publish-current'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy public review page
+        if: steps.mode.outputs.action != 'publish-current'
+        id: deploy
+        uses: actions/deploy-pages@v4
+
+      - name: Install publisher for an existing draft
+        if: steps.mode.outputs.action == 'publish-current'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install lightweight publisher dependencies
+        if: steps.mode.outputs.action == 'publish-current'
+        run: python -m pip install .
+
+      - name: Publish only when explicitly enabled
+        if: steps.mode.outputs.action == 'generate-and-post' || steps.mode.outputs.action == 'publish-current'
+        shell: bash
+        run: |
+          if [[ "${{ steps.mode.outputs.action }}" == "generate-and-post" ]]; then
+            BASE_URL="${{ steps.deploy.outputs.page_url }}"
+          else
+            BASE_URL="${{ steps.pages_url.outputs.base_url }}"
+          fi
+          curl --fail --silent --show-error --retry 20 --retry-delay 6 \
+            "${BASE_URL}draft.json" --output /tmp/reelbot-draft.json
+          MEDIA_PATH="$(python -c 'import json; print(json.load(open("/tmp/reelbot-draft.json"))["media_path"])')"
+          curl --fail --silent --show-error --retry 20 --retry-delay 6 \
+            --range 0-1024 "${BASE_URL}${MEDIA_PATH}" --output /dev/null
+          python -m reelbot publish-current --base-url "${BASE_URL}"
+
